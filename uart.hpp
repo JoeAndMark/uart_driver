@@ -3,6 +3,7 @@
 
 // 标准库
 #include <iostream>
+#include <map>
 
 // 第三方库
 #include <termios.h>
@@ -35,6 +36,172 @@ public:
         } /* Uart(const char* port, int baudRate) { */
     
     ~Uart() {
+
+    }
+
+    /**
+     * @brief 配置波特率
+     * @param baudRate : 波特率，直接传入实际大小，而非termios定义的位图
+     * @note 一旦修改配置，串口将自动关闭，需要重新打开串口
+     */
+    void configBaudRate(speed_t baudRate) {
+        _baudRate = baudRate;
+        _open     = false;
+
+        // 输入值和位图之间的映射
+        static const std::map<speed_t, speed_t> baudRateMap = {
+            {      0,       B0}, {     50,      B50}, {     75,      B75},
+            {    110,     B110}, {    134,     B134}, {    150,     B150},
+            {    200,     B200}, {    300,     B300}, {    600,     B600},
+            {   1200,    B1200}, {   1800,    B1800}, {   2400,    B2400},
+            {   4800,    B4800}, {   9600,    B9600}, {  19200,   B19200},
+            {  38400,   B38400}, {  57600,   B57600}, { 115200,  B115200},
+            { 230400,  B230400}, { 460800,  B460800}, { 500000,  B500000},
+            { 576000,  B576000}, { 921600,  B921600}, {1000000, B1000000},
+            {1152000, B1152000}, {1500000, B1500000}, {2000000, B2000000},
+            {2500000, B2500000}, {3000000, B3000000}, {3500000, B3500000},
+            {4000000, B4000000}
+        };
+
+        auto item = baudRateMap.find(_baudRate);
+        
+        if (item == baudRateMap.end()) {
+            throw std::invalid_argument("Invalid baud rate config");
+        }
+
+        // 这两个API本质上仍然是在操作_tty结构体，并未应用更改
+        cfsetispeed(&_tty, item->second);
+        cfsetospeed(&_tty, item->second);
+    } /* void configBaudRate(int baudRate) { */
+
+    /**
+     * @brief 设置数据位的长度
+     * @param dataBits : 数据位的长度（5，6，7，8）
+     * @note 一旦修改配置，串口将自动关闭，需要重新打开串口
+     */
+    void configDataBits(int dataBits) {
+        _dataBits     = dataBits;
+        _open         = false;
+        _tty.c_cflag &= ~CSIZE; // 清除旧的数据位设置
+
+        switch (dataBits) {
+            case 5:
+                _tty.c_cflag |= CS5;
+                break;
+            case 6:
+                _tty.c_cflag |= CS6;
+                break;
+            case 7:
+                _tty.c_cflag |= CS7;
+                break;
+            case 8:
+                _tty.c_cflag |= CS8;
+                break;
+            default:
+                throw std::invalid_argument("Invalid data bits config.");
+        }
+        // tcsetattr(_fd, TCSANOW, &_tty);
+        // setAttributes(_tty);
+    } /* void configDataBits(int dataBits) { */
+
+    /**
+     * @brief 设置奇偶校验为
+     * @param parity : 奇偶校验类型
+     * @note 一旦修改配置，串口将自动关闭，需要重新打开串口
+     */
+    void configParity(char parity) {
+        _parity = parity;
+        _open   = false;
+
+        switch (parity) {
+            case 'N': // 无校验
+                _tty.c_cflag &= ~PARENB;
+                break;
+            case 'E': // 偶校验
+                _tty.c_cflag |= PARENB; // 开启奇偶校验
+                _tty.c_cflag &= ~PARODD; // 偶校验
+                break;
+            case 'O': // 奇校验
+                _tty.c_cflag |= PARENB;
+                _tty.c_cflag &= PARODD;
+                break;
+            default:
+                throw std::invalid_argument("Invalid parity config.");
+                break;
+        } /* switch (parity) { */
+        // tcsetattr(_fd, TCSANOW, &_tty);
+        // setAttributes(_tty);
+    } /* void configParity(char parity) { */
+
+    /** 
+     * @brief 配置停止位
+     * @param stopBits : 停止位数（1或者2）
+     * @note 一旦修改配置，串口将自动关闭，需要重新打开串口
+     */
+    void configStopBits(int stopBits) {
+        _stopBits = stopBits;
+        _open     = false;
+
+        if (stopBits == 1) {
+            _tty.c_cflag &= ~CSTOPB;
+        } else if (stopBits == 2) {
+            _tty.c_cflag |= CSTOPB;
+        } else {
+            throw std::invalid_argument("Invalid stop bits config.");
+        }
+
+        // tcsetattr(_fd, TCSANOW, &_tty);
+        // setAttributes(_tty);
+    } /* void configStopBits(int stopBits) {*/
+
+    /**
+     * @brief 配置硬件流控制
+     * @param enable : 是否启用硬件流控制
+     * @param 一旦修改配置，串口将自动关闭，需要重新打开串口
+     */
+    void configHardwareFlowControl(bool enable) {
+        _hfc  = enable;
+        _open = false;
+
+        if (enable) {
+            _tty.c_cflag |= CRTSCTS;
+        } else {
+            _tty.c_cflag &= ~CRTSCTS;
+        } /* if (enable) { */
+
+        // tcsetattr(_fd, TCSANOW, &_tty);
+        // setAttributes(_tty);
+    } /* configHardwareFlowControl(bool state) { */
+
+    /**
+     * @brief 设置软件流控制
+     * @param enable : 是否启用软件流控制
+     */
+    void configSoftwareFlowControl(bool enable) {
+        _sfc  = enable;
+        _open = false;
+        
+        if (enable) {
+            _tty.c_iflag |= (IXON | IXOFF | IXANY);
+        } else {
+            _tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+        } /* if (state == true) { */
+
+        // tcsetattr(_fd, TCSANOW, &_tty);
+        // setAttributes(_tty);
+    } /* void configSoftwareFlowControl(bool state) { */
+
+    /**
+     * @brief 应用配置
+     * @note 串口的所有配置应该写入_tty结构体中，然后再调佣此API进行应用
+     *       此API不会打开串口，调用完成后，需要调用open()打开串口
+     */
+    void setAttributes() {
+        _open = false;
+
+        if (tcsetattr(_fd, TCSANOW, &_tty) ==  -1) {
+            throw std::runtime_error("Error in settring attributes.");
+        }
 
     }
 
@@ -107,6 +274,29 @@ public:
     } /* struct termios getAttributs() const { */
 
 private:
+    /**
+     * @brief 配置串口
+     */
+    bool configure() {
+
+        try {
+            configBaudRate(_baudRate);
+            configParity(_parity); // 无奇偶校验
+            configStopBits(_stopBits); // 1个停止位
+            configDataBits(_dataBits); // 8个数据位
+            configHardwareFlowControl(_hfc); // 无硬件流控制
+            configSoftwareFlowControl(_sfc); // 无软件流控制
+        } catch (std::invalid_argument& e) {
+            std::cerr << e.what() << std::endl;
+            return false;
+        } catch (std::runtime_error& e) {
+            std::cerr << e.what() << std::endl;
+            return false;
+        }
+        
+        return true;
+    }
+
     const char* _port;   // 设备路径
     speed_t _baudRate;   // 波特率
     bool _hfc;           // 是否启用硬件流控制
