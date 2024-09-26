@@ -40,6 +40,56 @@ public:
     }
 
     /**
+     * @brief 打开串口
+     * @return 状态，true串口打开成功，反之表示串口打开失败
+     */
+    bool open() {
+
+        if (!configure()) {
+            try {
+                close();
+            } catch (std::runtime_error& e) {
+                std::cerr << e.what() << std::endl;
+            }
+            //close();
+            return false;
+        }
+
+        // 应用配置
+        try {
+            setAttributes();
+        } catch (std::runtime_error& e) {
+            std::cerr << e.what() << std::endl;
+        }
+
+        // 打开串口的步骤：
+        // 1.调用open()系统调用打开设备文件
+        // 2.配置串口各种参数，并应用更改
+        // 只有当这两个步骤都成功后，串口才算打开成功
+        // 如果对象调用API修改配置，则串口自动被关闭
+        _open = true;
+
+        return true;
+    } /* bool open() {*/
+
+    /**
+     * @brief 关闭串口
+     */
+    void close() {
+        _open = false;
+        if (_fd != -1) {
+
+            if (::close(_fd) == -1) {
+                // std::cerr << "Error closing UART port" << std::endl;
+                throw std::runtime_error("Error in closing UART port.");
+            }
+
+            _fd = -1;
+        }
+    } /* void close() { */
+
+
+    /**
      * @brief 配置波特率
      * @param baudRate : 波特率，直接传入实际大小，而非termios定义的位图
      * @note 一旦修改配置，串口将自动关闭，需要重新打开串口
