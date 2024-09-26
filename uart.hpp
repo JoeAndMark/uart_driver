@@ -84,6 +84,14 @@ public:
         return _stopBits;
     }
 
+    /**
+     * @brief 检查串口是否已经打开
+     * @return true表示串口已经打开，反之表示串口未打开
+     */
+    bool isOpen() const {
+        return _open;
+    } /* bool isOpen() const { */
+
 private:
     const char* _port;   // 设备路径
     speed_t _baudRate;   // 波特率
