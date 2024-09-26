@@ -1,2 +1,4 @@
-# uart_driver
-The uart_driver is designed to provide a simpler and faster way to use uart on embedding Linux, using C++.
+# 简介
+`uart_driver` 旨在向嵌入式 `Linux` 的开发者们提供一个更加便捷、高效方式来使用串口 `uart` 进行开发。
+本项目使用 C++ 完成代码构建。
+
