@@ -88,6 +88,62 @@ public:
         }
     } /* void close() { */
 
+    /**
+     * @brief 串口发送指定长度的数据
+     * @param data   : 需要发送的数据的基地址
+     * @param length : 发送的数据的长度（单位：字节）
+     * @return 发送成功则返回发送的数据长度，发送失败则返回-1
+     */
+    ssize_t send(const char* data, size_t length) const {
+
+        if (!isOpen()) {
+            throw std::runtime_error("UART port is not open.");
+        }
+
+        if (data == nullptr) {
+            throw std::invalid_argument("Data cannot be nullptr.");
+        }
+
+        ssize_t result = write(_fd, data, length);
+
+        if (result == -1) {
+            throw std::runtime_error("Error in sending data.");
+        }
+
+        return result;
+    } /* ssize_t send(const char* data, size_t length) const { */
+
+    /**
+     * @brief 串口接收指定长度的数据
+     * @param buffer : 数据缓冲区基地址
+     * @param length : 接收的数据的最大长度（单位：字节）
+     * @return 接收成功则返回接收的数据的长度，接收失败则返回-1
+     * @note 返回值可能小于length
+     */
+    ssize_t receive(char* buffer, size_t length) const {
+
+        if (!isOpen()) {
+            throw std::runtime_error("UART port is not open.");
+        }
+
+        if (buffer == nullptr) {
+            throw std::invalid_argument("Buffer cannot be nullptr.");
+        }
+
+        ssize_t result = read(_fd, buffer, length);
+
+        if (result == -1) {
+            if (errno == EAGAIN) {
+                std::cerr << "Error: EAGAIN" << std::endl;
+            }
+            throw std::runtime_error("Error in receiving data.");
+        } else {
+            buffer[result] = '\0';
+        }
+
+        return result;
+    } /* ssize_t receive(char* buffer, size_t length) { */
+
 
     /**
      * @brief 配置波特率
