@@ -33,9 +33,32 @@ public:
         , _stopBits(stopBits)
         , _dataBits(dataBits)
         , _open(false) {
+            // 安全性检查
+            if (_port == nullptr) {
+                throw std::invalid_argument("Port cannot be nullptr.");
+            }
+            
+            _fd = ::open(_port, O_RDWR | O_NOCTTY | O_NDELAY);
+
+            if (_fd == -1) {
+                throw std::runtime_error("Error in opening UART port.");
+            } /* if (_fd == -1) { */
+
+            try {
+                _tty = getAttributes();
+            } catch (std::runtime_error& e) {
+                std::cerr << e.what() << std::endl;
+            }
+
         } /* Uart(const char* port, int baudRate) { */
     
     ~Uart() {
+
+        try {
+            close();
+        } catch (std::runtime_error& e) {
+            std::cerr << e.what() << std::endl;
+        }
 
     }
 
