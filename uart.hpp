@@ -91,6 +91,20 @@ public:
     bool isOpen() const {
         return _open;
     } /* bool isOpen() const { */
+    
+    /**
+     * @brief 获取串口属性
+     * @return 返回串口属性结构体
+     */
+    struct termios getAttributes() const {
+        struct termios tty;
+
+        if (tcgetattr(_fd, &tty) ==  -1) {
+            throw std::runtime_error("Error in getting attributes.");
+        } /* if (tcgetattr(_fd, &tty) == -1) { */
+
+        return tty;
+    } /* struct termios getAttributs() const { */
 
 private:
     const char* _port;   // 设备路径
