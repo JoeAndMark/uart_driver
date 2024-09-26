@@ -51,7 +51,23 @@ public:
             }
 
         } /* Uart(const char* port, int baudRate) { */
-    
+
+    /**
+     * @brief 构造函数
+     * @param tty : 从外部传入的termios结构体
+     */
+    Uart(const char* port, const struct termios& tty)
+    : _port(port)
+    , _tty(tty) 
+    , _open(false) {
+        try {
+            analysis(tty);
+        } catch (std::invalid_argument& e) {
+            std::cerr << e.what() << std::endl;
+        }
+    }
+
+
     ~Uart() {
 
         try {
@@ -424,6 +440,75 @@ private:
         }
         
         return true;
+    }
+    
+    /**
+     * @brief 解析从外部传入的termios结构体，并更新Uart属性
+     */
+    void analysis(const struct termios& tty) {
+        // 解析波特率
+        speed_t inputBaudRate  = cfgetispeed(&tty);
+        speed_t outputBaudRate = cfgetospeed(&tty);
+
+        if (inputBaudRate != outputBaudRate) {
+            throw std::invalid_argument("Invalid termios struct in baud rate config.");
+        }
+
+        _baudRate = inputBaudRate;
+
+        // 解析数据位
+        speed_t dataBitsMacro = tty.c_cflag & CSIZE;
+        
+        switch (dataBitsMacro) {
+            case CS5:
+                _dataBits = 5;
+                break;
+            case CS6:
+                _dataBits = 6;
+                break;
+            case CS7:
+                _dataBits = 7;
+                break;
+            case CS8:
+                _dataBits = 8;
+                break;
+            default:
+                throw std::invalid_argument("Invalid termios struct in data bits config.");
+        }
+
+        // 解析停止位
+        if (tty.c_cflag & CSTOPB) {
+            _stopBits = 2;
+        } else {
+            _stopBits = 1;
+        }
+
+        // 解析奇偶校验
+        if (tty.c_cflag & PARENB) {
+            
+            if (tty.c_cflag & PARODD) {
+                _parity = 'O';
+            } else {
+                _parity = 'E';
+            }
+
+        } else {
+            _parity = 'N';
+        }
+
+        // 解析硬件流控制
+        if (tty.c_cflag & CRTSCTS) {
+            _hfc = true;
+        } else {
+            _hfc = false;
+        }
+
+        // 解析软件流控制
+        if (tty.c_cflag & (IXON | IXOFF | IXANY)) {
+            _sfc = true;
+        } else {
+            _sfc = false;
+        }
     }
 
     const char* _port;   // 设备路径
